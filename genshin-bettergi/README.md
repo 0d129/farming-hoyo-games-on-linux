@@ -75,6 +75,7 @@ Logs:
 | BetterGI crashes right after starting, mentioning the registry or URL protocol | Run `./setup.sh registry`. |
 | BetterGI can't capture the game, or the capture is black | Run `./setup.sh bgiconfig` with BetterGI closed. Capture mode must be `BitBlt`. |
 | BetterGI can't find the game window | BetterGI is on a different wineserver. Check `PROTON_DIR`, and don't change `WINEFSYNC`/`WINEESYNC`. |
+| The game dies ~30 s after launch with no window (Proton log: crash in `MHYPBase.dll`) | Happens right after a reboot. Launch it again a few seconds later; the second launch works. |
 | `Fontconfig error: … out of memory` in the log | Harmless. |
 
 ## License

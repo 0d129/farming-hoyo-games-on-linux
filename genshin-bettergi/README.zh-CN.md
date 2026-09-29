@@ -75,6 +75,7 @@ BetterGI 以正常的图形界面运行在**和游戏同一个 Proton 前缀、�
 | BetterGI 一启动就崩溃，提到注册表或 URL 协议 | 运行 `./setup.sh registry`。 |
 | BetterGI 截不到游戏画面，或者画面是黑的 | 关闭 BetterGI 后运行 `./setup.sh bgiconfig`。截图方式必须是 `BitBlt`。 |
 | BetterGI 找不到游戏窗口 | BetterGI 在另一个 wineserver 里。检查 `PROTON_DIR`，不要改 `WINEFSYNC`/`WINEESYNC`。 |
+| 游戏启动约 30 秒后退出，没有窗口（Proton 日志：`MHYPBase.dll` 内崩溃） | 刚开机时会这样。几秒后再启动一次，第二次就正常。 |
 | 日志里有 `Fontconfig error: … out of memory` | 无害，可以忽略。 |
 
 ## 许可证

@@ -2,7 +2,9 @@
 # Run ZenlessZoneZero-OneDragon headless inside the game's own Proton prefix.
 # Start ZZZ from Steam first, then:
 #   ./zzz-od.sh test          capture + OCR self-test (screenshot -> $OD_DIR/.debug/linux_selftest.png)
-#   ./zzz-od.sh run [args]    one-dragon run; args: -i 1,2 (instances)  -c (close game after)
+#   ./zzz-od.sh enter         get from the title screen into the game world
+#   ./zzz-od.sh run [args]    enter the game, then one-dragon run; args: -i 1,2 (instances)  -c (close game after)
+#   ./zzz-od.sh app <app_id>  run one application, e.g. app charge_plan
 HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 [ -f "$HERE/config.sh" ] && . "$HERE/config.sh"
 
@@ -29,5 +31,19 @@ cd "$OD_DIR" || exit 1
 # Wine's own SetForegroundWindow is blocked by KDE focus-stealing prevention; raise from the X11 side.
 python3 "$HERE/raise_game.py" "steam_app_$ZZZ_APPID" || exit 1
 sleep 1
-exec "$PROTON_DIR/files/bin/wine" "$(winpath "$PY_DIR/python.exe")" "$(winpath "$HERE/bootstrap.py")" "${@:-run}" </dev/null 2>&1 \
-  | grep --line-buffered -v -E 'use_kernel_writewatch|^Fontconfig error'
+# X11-side click helper (see xinput_server.py); stopped when this script exits
+export ZZZ_OD_XINPUT_PORT="${ZZZ_OD_XINPUT_PORT:-47391}"
+python3 "$HERE/xinput_server.py" "$ZZZ_OD_XINPUT_PORT" &
+XINPUT_PID=$!
+trap 'kill $XINPUT_PID 2>/dev/null' EXIT
+sleep 0.5
+od() {
+  "$PROTON_DIR/files/bin/wine" "$(winpath "$PY_DIR/python.exe")" "$(winpath "$HERE/bootstrap.py")" "$@" </dev/null 2>&1 \
+    | grep --line-buffered -v -E 'use_kernel_writewatch|^Fontconfig error'
+  return "${PIPESTATUS[0]}"
+}
+mode="${1:-run}"
+if [ "$mode" = run ]; then
+  od enter || { echo "could not enter the game, not starting one-dragon" >&2; exit 1; }
+fi
+od "$mode" "${@:2}"

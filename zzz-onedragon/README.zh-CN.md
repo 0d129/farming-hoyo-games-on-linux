@@ -6,20 +6,22 @@
 
 一条龙是 Windows 程序。这里用它自带的 Windows 版 Python，**以无界面方式**运行在**和游戏同一个 Proton 前缀、同一个 wineserver** 里。这样它能找到游戏窗口、截图和发送按键，和在 Windows 上一样。
 
-不修改一条龙源码，所有内容都在三个小脚本里：
+不修改一条龙源码，所有内容都在几个小脚本里：
 
 | 文件 | 作用 |
 |---|---|
 | `zzz-od.sh` | 启动脚本。设置 Wine 环境，把游戏窗口切到前台，启动一条龙。 |
-| `bootstrap.py` | 从一条龙目录加载程序，强制使用 BitBlt 截图，增加 `test` 自检模式。 |
+| `bootstrap.py` | 从一条龙目录加载程序，强制使用 BitBlt 截图，把点击交给 `xinput_server.py`，增加 `test`、`enter`、`app` 模式，并修正返回大世界的问题。 |
+| `xinput_server.py` | 从 X11 一侧执行一条龙的鼠标点击（在大世界里，游戏不接受从 Wine 内部发出的点击）。由 `zzz-od.sh` 启动和关闭。 |
 | `raise_game.py` | 从 X11 一侧把游戏窗口切到前台（Wine 自己的调用会被 KDE 拦下）。 |
 | `config.example.sh` | 复制为 `config.sh`，填写你的路径。 |
 
 ## 测试环境
 
 - Ubuntu，内核 7.0，KDE Plasma（**X11**），AMD Radeon 680M
-- Steam，**Proton 9.0 (Beta)**，游戏分辨率 1920×1080
+- Steam，**Proton 9.0 (Beta)**，游戏为 1280×720 窗口（一条龙会缩放到它的 1080p 布局）
 - 一条龙提交 `8b52af8`（自带 Python 3.11.12）
+- 完整跑通一次一条龙：从标题画面登录、咖啡店、录像店、刮刮卡、驱动盘拆解、丽都城募、活跃度奖励、实战模拟室体力刷本（含战斗）、通知。
 
 未测试 Wayland。`raise_game.py` 直接和 X 服务器通信，在 Wayland 下可能只对 XWayland 窗口有效，也可能完全无效。
 
@@ -66,7 +68,8 @@ nano config.sh          # 填写 ZZZ_APPID 和 OD_DIR
 
 ## 使用
 
-1. 从 Steam 启动绝区零，等到标题画面或主界面。
+1. 从 Steam 启动绝区零。停在标题画面即可，`run` 会自己登录进游戏。
+   刚开机后第一次启动有时会在约 30 秒内退出（只剩空的窗口边框），再启动一次即可。
 2. 运行自检：
    ```bash
    ./zzz-od.sh test
@@ -76,6 +79,11 @@ nano config.sh          # 填写 ZZZ_APPID 和 OD_DIR
    ```bash
    ./zzz-od.sh run -i 1       # 运行实例 1；多个实例用 -i 1,2
    ./zzz-od.sh run -i 1 -c    # 完成后关闭游戏
+   ```
+   `run` 会先把游戏从标题画面带进大世界（`./zzz-od.sh enter` 只做这一步），再开始一条龙。
+4. 只想运行某一个应用时，传入它的 app ID，例如体力刷本：
+   ```bash
+   ./zzz-od.sh app charge_plan
    ```
 
 运行期间**不要动鼠标键盘，也不要切换窗口**。和 Windows 上一样，输入会发给最前面的窗口。日志在 `<一条龙目录>/.log/`。
@@ -87,6 +95,9 @@ nano config.sh          # 填写 ZZZ_APPID 和 OD_DIR
 - **同一个前缀、同一个 wineserver。** 一条龙用 Win32 窗口接口查找游戏，而这些接口只能看到同一个 wineserver 里的窗口。所以 `WINEPREFIX` 指向游戏的前缀，`WINEFSYNC`/`WINEESYNC` 和 Proton 保持一致，Wine 才会连接到正在运行的 wineserver，而不是报错或另起一个。
 - **BitBlt 截图。** `bootstrap.py` 强制使用 `bitblt` 截图方式（可用 `ZZZ_OD_SCREENSHOT=...` 改），不修改 `env.yml`，同一个目录拿回 Windows 仍能用。BitBlt 复制的是游戏区域在*屏幕上*显示的内容，所以游戏窗口不能被遮挡。
 - **切换窗口到前台。** 一条龙会调用 `SetForegroundWindow`，但 KDE 的防抢焦点机制会忽略来自 Wine 的这个请求。`raise_game.py` 以任务栏（pager）身份发送 EWMH `_NET_ACTIVE_WINDOW` 请求，KDE 会执行。如果游戏仍不在前台，自检会失败，不会因为游戏被遮挡而误报 `PASS`。
+- **点击走 X11。** 在大世界里绝区零会锁定鼠标，而在 Wine 下它不接受从 Wine 内部发出的鼠标点击（所以左上角菜单这类按钮永远点不开）。按住 ALT 的真实 X11 点击可以。`zzz-od.sh` 在本地端口启动 `xinput_server.py`，`bootstrap.py` 替换一条龙的点击函数，把每次点击发到那里，用 XTest 完成：按住 ALT、移动鼠标、点击。战斗按键和攻击走另一条路，不受影响。设置 `ZZZ_OD_XINPUT_ALT=0` 可以不按 ALT 点击。
+- **进入游戏。** 一条龙只有在自己启动游戏时才会自动登录，而这里是 Steam 启动游戏。所以 `run` 会先运行一条龙自己的进入游戏步骤（标题画面 → 登录 → 大世界）；如果已经在大世界就跳过。
+- **返回大世界后再确认一次。** 一条龙通过点击左上角的返回箭头回到大世界，而这个位置正好是大世界的菜单按钮。如果点击在画面刚切换后才生效，就会打开菜单，下一步便会误点进菜单（表现为弹出丁尼的说明框）。`bootstrap.py` 让这一步等 1.5 秒再确认一次，然后才继续。
 - **`ucrtbase` 替换。** 见第 3 步。
 
 ## 常见问题
@@ -97,6 +108,10 @@ nano config.sh          # 填写 ZZZ_APPID 和 OD_DIR
 | OCR 加载后显示 `FAIL: game window not found` | 一条龙在另一个 wineserver 里。`PROTON_DIR` 必须是游戏用的 Proton；不要改 `WINEFSYNC`/`WINEESYNC`。 |
 | numpy 导入报错，提到 `crealf` | `python.exe` 旁边缺少原生 `ucrtbase.dll`（第 3 步）。 |
 | 截图是终端而不是游戏 | 游戏被遮挡。现在的自检会发现这种情况；保持游戏在最前面。 |
+| 在大世界里鼠标光标每隔几秒闪一下，但什么都没发生；日志反复出现 `打开邮件 返回状态 按钮-菜单` | 点击没有到达游戏。确认 `xinput_server.py` 和 `zzz-od.sh` 在同一目录并且能启动（需要 `libXtst` 和 X11 会话）。 |
+| `enter game: success=False status=未知画面` | 开始时游戏停在一条龙不认识的画面。回到标题画面或大世界后再运行。 |
+| 开机后第一次启动约 30 秒后退出，或只剩空的窗口边框 | 米哈游游戏刚开机时会这样。再启动一次，第二次就正常。 |
+| 战斗时出现来自 `soundcard` 的 `RuntimeError: unsupported format` | 无害。Wine 录不到游戏声音，一条龙会关闭声音闪避，保留画面识别闪避。 |
 | 游戏启动后一直黑屏，`Player.log` 里有 `IOException: Win32 IO returned 998` | 游戏文件损坏或无法写入（见注意事项）。把游戏移到 Linux 文件系统上。 |
 
 游戏的 Unity 日志在 `<前缀>/drive_c/users/steamuser/AppData/LocalLow/miHoYo/ZenlessZoneZero/Player.log`。
