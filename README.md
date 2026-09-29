@@ -7,7 +7,7 @@ Guides and scripts for running Windows auto-farming tools for HoYoverse games on
 | Game | Tool | Status | Guide |
 |---|---|---|---|
 | Zenless Zone Zero | [ZenlessZoneZero-OneDragon](https://github.com/OneDragon-Anything/ZenlessZoneZero-OneDragon) | Working | [zzz-onedragon/](zzz-onedragon/README.md) |
-| Genshin Impact | [BetterGI](https://github.com/babalae/better-genshin-impact) | Planned | — |
+| Genshin Impact | [BetterGI](https://github.com/babalae/better-genshin-impact) | Working | [genshin-bettergi/](genshin-bettergi/README.md) |
 
 The approach is the same for each tool: the tool runs with Wine **inside the same Proton prefix and wineserver as the game**, so it can find the game window, take screenshots and send input as it would on Windows. The tools' own source is not modified.
 
@@ -26,4 +26,4 @@ The approach is the same for each tool: the tool runs with Wine **inside the sam
 
 ## License
 
-GPL-3.0 (see [LICENSE](LICENSE)), the same as ZenlessZoneZero-OneDragon.
+GPL-3.0 (see [LICENSE](LICENSE)). The tools themselves are not included.

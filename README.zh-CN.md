@@ -7,7 +7,7 @@
 | 游戏 | 工具 | 状态 | 教程 |
 |---|---|---|---|
 | 绝区零 | [绝区零一条龙（ZenlessZoneZero-OneDragon）](https://github.com/OneDragon-Anything/ZenlessZoneZero-OneDragon) | 可用 | [zzz-onedragon/](zzz-onedragon/README.zh-CN.md) |
-| 原神 | [BetterGI](https://github.com/babalae/better-genshin-impact) | 计划中 | — |
+| 原神 | [BetterGI](https://github.com/babalae/better-genshin-impact) | 可用 | [genshin-bettergi/](genshin-bettergi/README.zh-CN.md) |
 
 每个工具的思路相同：用 Wine 把工具运行在**和游戏同一个 Proton 前缀、同一个 wineserver 里**，这样它能找到游戏窗口、截图和发送按键，和在 Windows 上一样。不修改工具本身的源码。
 
@@ -26,4 +26,4 @@
 
 ## 许可证
 
-GPL-3.0（见 [LICENSE](LICENSE)），与绝区零一条龙相同。
+GPL-3.0（见 [LICENSE](LICENSE)）。本仓库不包含这些工具本身。
