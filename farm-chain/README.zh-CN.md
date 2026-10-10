@@ -6,7 +6,7 @@
 
 | 文件 | 作用 |
 |---|---|
-| `config.example.sh` | 复制为 `config.sh`，填两个游戏的 Steam app ID。 |
+| `config.example.sh` | 复制为 `config.sh`，填两个游戏的 Steam app ID，可选填 Discord webhook。 |
 | `farm-chain.sh` | 运行串联。`./farm-chain.sh` 跑全部步骤；`./farm-chain.sh zzz` 只跑指定的步骤（`genshin`、`zzz`）。 |
 | `farm-chain-cron.sh` | 给 cron 用的入口：从桌面会话借用 `DISPLAY`/`XAUTHORITY`/D-Bus，再运行 `farm-chain.sh`。 |
 | `kwin-rule.sh` | 仅 KDE：添加一条窗口规则，防止 BetterGI 的遮罩窗口被最大化（见[下文](#bettergi-报-cannot-show-window-when-showactivated-is-false-and-windowstate-is-set-to-maximized)）。 |
@@ -20,7 +20,10 @@
 
 以下情况**会把这一步重跑一次**：
 - 工具启动后 120 秒内游戏就关闭了（启动后闪退）；
-- BetterGI 陷入已知的报错循环（见下文）。如果不检测，它会一直空等到超时。
+- 工具启动后卡死：5 分钟内没有在自己的日志里写出“已就绪”标志（BetterGI 是 `启用一条龙配置`，一条龙是 `指令[ 进入游戏 ]`）。两个工具都出现过加载完 OCR 模型后就无声卡住的情况；
+- BetterGI 陷入已知的报错循环（见下文）。如果不检测，它们会一直空等到超时。
+
+在 `config.sh` 里设置 `DISCORD_WEBHOOK` 后，每次运行结束都会把汇总（每一步每次尝试的结果）发到 Discord。这样即使工具卡死、没发出自己的通知，也能收到失败消息。
 
 日志在 `~/.cache/farm-chain/chain-<日期>.log`，工具自己的输出在 `~/.cache/farm-chain/<步骤>-tool.log`。
 
@@ -29,7 +32,7 @@
 ```bash
 cd farming-hoyo-games-on-linux/farm-chain
 cp config.example.sh config.sh
-nano config.sh          # GI_APPID、ZZZ_APPID
+nano config.sh          # GI_APPID、ZZZ_APPID、DISCORD_WEBHOOK（可选）
 ./farm-chain.sh         # 先手动跑一次
 ./kwin-rule.sh          # 仅 KDE，推荐
 crontab -e

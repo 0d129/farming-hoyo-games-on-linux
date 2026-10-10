@@ -6,7 +6,7 @@ Runs [genshin-bettergi](../genshin-bettergi/README.md) and [zzz-onedragon](../zz
 
 | File | What it does |
 |---|---|
-| `config.example.sh` | Copy to `config.sh` and set both games' Steam app IDs. |
+| `config.example.sh` | Copy to `config.sh` and set both games' Steam app IDs, and optionally a Discord webhook. |
 | `farm-chain.sh` | Runs the chain. `./farm-chain.sh` runs all steps; `./farm-chain.sh zzz` runs only the named ones (`genshin`, `zzz`). |
 | `farm-chain-cron.sh` | Entry point for cron: borrows `DISPLAY`/`XAUTHORITY`/D-Bus from your desktop session, then runs `farm-chain.sh`. |
 | `kwin-rule.sh` | KDE only: adds a window rule that keeps BetterGI's overlay from being maximized (see [below](#bettergi-cannot-show-window-when-showactivated-is-false-and-windowstate-is-set-to-maximized)). |
@@ -19,8 +19,11 @@ Runs [genshin-bettergi](../genshin-bettergi/README.md) and [zzz-onedragon](../zz
 4. Ends when the game closes (both tools are set to close it when done), the tool exits, or the timeout is reached (`GI_TIMEOUT` 40 min, `ZZZ_TIMEOUT` 20 min). Then it stops the game's whole wineserver.
 
 A step is **run again once** when:
-- the game closes within 120 s of the tool starting (a launch crash); or
-- BetterGI hits a known error loop (see below). Without this check it would idle until the timeout.
+- the game closes within 120 s of the tool starting (a launch crash);
+- the tool hangs at startup: it hasn't written its "ready" line to its own log within 5 min (BetterGI: `启用一条龙配置`, OneDragon: `指令[ 进入游戏 ]`). Both tools have been seen freezing silently right after loading their OCR models; or
+- BetterGI hits a known error loop (see below). Without these checks it would idle until the timeout.
+
+With `DISCORD_WEBHOOK` set in `config.sh`, a summary of each run (every attempt of every step and how it ended) is posted to Discord. This means a run where a tool hung and never sent its own notification still gets reported.
 
 Log: `~/.cache/farm-chain/chain-<date>.log`. The tools' own output goes to `~/.cache/farm-chain/<step>-tool.log`.
 
@@ -29,7 +32,7 @@ Log: `~/.cache/farm-chain/chain-<date>.log`. The tools' own output goes to `~/.c
 ```bash
 cd farming-hoyo-games-on-linux/farm-chain
 cp config.example.sh config.sh
-nano config.sh          # GI_APPID, ZZZ_APPID
+nano config.sh          # GI_APPID, ZZZ_APPID, DISCORD_WEBHOOK (optional)
 ./farm-chain.sh         # try it once by hand
 ./kwin-rule.sh          # KDE only, recommended
 crontab -e
