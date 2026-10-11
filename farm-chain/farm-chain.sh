@@ -28,6 +28,7 @@ STEPS=(
 GAME_START_TIMEOUT=300   # Steam may need to start first
 GAME_START_TRIES=6       # launches before giving up; Genshin often dies within ~20s on the first 2-3
 GAME_LOAD_WAIT=20        # let the game get past its splash before the tool looks at it
+DIAG_KEEP=20             # failed launches to keep diagnostics for (~/.cache/farm-chain/diag/)
 EARLY_EXIT=120           # game closing this soon after the tool started = launch crash, retry the step
 STEP_TRIES=2             # attempts per step for retryable failures (early game exit, stuck/hung tool)
 READY_TIMEOUT=300        # tool must log its READY line within this many seconds, or it is treated as hung
@@ -79,6 +80,30 @@ game_is_active() {
   local w; w=$(xprop -root _NET_ACTIVE_WINDOW 2>/dev/null | sed 's/.*# //; s/,.*//')
   xprop -id "$w" WM_CLASS 2>/dev/null | grep -q "\"steam_app_$1\""
 }
+# Diagnostics for failed game launches: screenshots taken while the game was loading and right
+# after it died, the window and process lists, the game's own logs, and Steam's process log.
+shot() { xwd -root -silent 2>/dev/null | ffmpeg -loglevel error -y -f xwd_pipe -i - -q:v 4 "$1" 2>/dev/null; }
+game_dir_of() {  # unix dir of a running Wine exe, from its argv[0] "Z:\home\...\Game.exe"
+  local pid; pid=$(pgrep -f "^[A-Z]:.*\\\\${1//./[.]}( |$)" | head -1) || return
+  tr '\0' '\n' <"/proc/$pid/cmdline" | head -1 | sed 's/^Z://; s|\\|/|g; s|/[^/]*$||'
+}
+save_diag() {  # dir appid game game-dir
+  local d=$1 appid=$2 game=$3 gdir=$4 pfx="$STEAM_ROOT/steamapps/compatdata/$2/pfx" w
+  shot "$d/3-after-exit.jpg"
+  for w in $(xprop -root _NET_CLIENT_LIST 2>/dev/null | sed 's/.*# //; s/,//g'); do
+    echo "$w $(xprop -id "$w" WM_CLASS _NET_WM_NAME _NET_WM_STATE 2>/dev/null | tr '\n' ' ')"
+  done >"$d/windows.txt"
+  pgrep -af '^[A-Z]:' >"$d/wine-processes.txt"
+  # files the game and Wine wrote during this launch (game logs, crash dumps, driver errors)
+  { [ -n "$gdir" ] && find "$gdir" -maxdepth 2 -type f -newer "$d/.start" -size -20M
+    find "$pfx/drive_c/users/steamuser/AppData" "$pfx/drive_c/users/steamuser/Temp" -type f -newer "$d/.start" -size -20M
+  } 2>/dev/null | head -50 | while read -r f; do cp -p "$f" "$d/$(echo "${f#$HOME/}" | tr '/ ' '__')"; done
+  grep -a "AppID $(python3 -c "print(($appid << 32) | 0x02000000)") " "$STEAM_ROOT/logs/gameprocess_log.txt" 2>/dev/null |
+    awk -v since="$(date -r "$d/.start" '+[%F %T]')" 'substr($0, 1, 21) >= since' >"$d/steam-gameprocess.txt"
+  ls -1dt "$LOG_DIR"/diag/*/ 2>/dev/null | tail -n +$((DIAG_KEEP + 1)) | xargs -r rm -rf
+  log "diagnostics saved to $d"
+}
+
 kill_prefix() {  # stops the game, the tool and anything else in that prefix
   WINEPREFIX="$STEAM_ROOT/steamapps/compatdata/$1/pfx" "$PROTON_DIR/files/bin/wineserver" -k 2>/dev/null
 }
@@ -87,9 +112,11 @@ start_game() {  # appid game-exe; returns 0 once the game is running with a wind
   # Right after boot the first launch of a HoYo game often dies within ~30s (Genshin: anti-cheat
   # crash, no window; ZZZ: empty window frame). A relaunch a few seconds later works, so retry at
   # once instead of waiting for the window timeout, and do not reset the prefix in between.
-  local appid=$1 game=$2 try t seen
+  local appid=$1 game=$2 try t seen diag gdir
   if window_exists "$appid" && wine_running "$game"; then return 0; fi
   for ((try = 1; try <= GAME_START_TRIES; try++)); do
+    diag="$LOG_DIR/diag/$(date +%Y%m%d-%H%M%S)-${game%.exe}-$try"; gdir=
+    mkdir -p "$diag" && touch "$diag/.start"
     log "launching $game from Steam (attempt $try)"
     steam "steam://rungameid/$(python3 -c "print(($appid << 32) | 0x02000000)")" >/dev/null 2>&1 9>&- &
     seen=0
@@ -97,9 +124,13 @@ start_game() {  # appid game-exe; returns 0 once the game is running with a wind
       sleep 2
       if wine_running "$game"; then
         seen=1
+        [ -n "$gdir" ] || gdir=$(game_dir_of "$game")
         if window_exists "$appid"; then
-          sleep "$GAME_LOAD_WAIT"
-          wine_running "$game" && return 0
+          shot "$diag/1-window-shown.jpg"
+          sleep $((GAME_LOAD_WAIT / 2))
+          shot "$diag/2-loading.jpg"
+          sleep $((GAME_LOAD_WAIT - GAME_LOAD_WAIT / 2))
+          if wine_running "$game"; then rm -rf "$diag"; return 0; fi
           break
         fi
       elif [ "$seen" = 1 ]; then
@@ -107,6 +138,7 @@ start_game() {  # appid game-exe; returns 0 once the game is running with a wind
       fi
     done
     log "$game did not start properly (attempt $try, ${t}s)"
+    save_diag "$diag" "$appid" "$game" "$gdir"
     # A dead game can leave its window frame behind; only then clear the prefix
     if window_exists "$appid"; then kill_prefix "$appid"; fi
     sleep 3

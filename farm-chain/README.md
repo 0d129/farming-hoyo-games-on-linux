@@ -27,6 +27,12 @@ With `DISCORD_WEBHOOK` set in `config.sh`, a summary of each run (every attempt 
 
 Log: `~/.cache/farm-chain/chain-<date>.log`. The tools' own output goes to `~/.cache/farm-chain/<step>-tool.log`.
 
+Each failed game launch leaves diagnostics in `~/.cache/farm-chain/diag/<time>-<game>-<attempt>/` (the last 20 are kept):
+- screenshots taken when the window appeared, while the game was loading, and right after it exited;
+- the window and Wine process lists;
+- files the game and Wine wrote during that launch (game logs, `driverError.log`, crash dumps);
+- Steam's process log for the game.
+
 ## Setup
 
 ```bash

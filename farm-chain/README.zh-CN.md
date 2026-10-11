@@ -27,6 +27,12 @@
 
 日志在 `~/.cache/farm-chain/chain-<日期>.log`，工具自己的输出在 `~/.cache/farm-chain/<步骤>-tool.log`。
 
+每次游戏启动失败，都会在 `~/.cache/farm-chain/diag/<时间>-<游戏>-<第几次>/` 留下诊断信息（保留最近 20 次）：
+- 截图：窗口出现时、游戏加载中、游戏退出后各一张；
+- 窗口列表和 Wine 进程列表；
+- 这次启动期间游戏和 Wine 写出的文件（游戏日志、`driverError.log`、崩溃转储）；
+- Steam 对这个游戏的进程日志。
+
 ## 安装
 
 ```bash
