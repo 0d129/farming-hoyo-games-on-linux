@@ -13,7 +13,7 @@
 
 ## 每一步做什么
 
-1. 从 Steam 启动游戏（`steam://rungameid/...`），最多重试 3 次。开机后第一次启动米哈游游戏经常在 30 秒内闪退。
+1. 从 Steam 启动游戏（`steam://rungameid/...`），最多尝试 6 次。开机后第一次启动米哈游游戏经常在 30 秒内闪退。
 2. 启动工具：`bettergi.sh startOneDragon` 或 `zzz-od.sh run -c`。
 3. 每 10 秒检查一次游戏和工具是否还在运行。游戏窗口失去焦点时把它切回前台：BetterGI 在游戏处于后台时会暂停，而 KDE 会阻止 Wine 自己抢回焦点。
 4. 游戏关闭（两个工具都设置成跑完后关闭游戏）、工具退出或者超时（`GI_TIMEOUT` 40 分钟，`ZZZ_TIMEOUT` 20 分钟）时结束这一步，然后停掉游戏的整个 wineserver。

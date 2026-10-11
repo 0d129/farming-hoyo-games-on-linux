@@ -26,6 +26,7 @@ STEPS=(
   "zzz|$ZZZ_APPID|ZenlessZoneZero.exe|$REPO/zzz-onedragon/zzz-od.sh run -c|python.exe|${ZZZ_TIMEOUT:-1200}"
 )
 GAME_START_TIMEOUT=300   # Steam may need to start first
+GAME_START_TRIES=6       # launches before giving up; Genshin often dies within ~20s on the first 2-3
 GAME_LOAD_WAIT=20        # let the game get past its splash before the tool looks at it
 EARLY_EXIT=120           # game closing this soon after the tool started = launch crash, retry the step
 STEP_TRIES=2             # attempts per step for retryable failures (early game exit, stuck/hung tool)
@@ -88,7 +89,7 @@ start_game() {  # appid game-exe; returns 0 once the game is running with a wind
   # once instead of waiting for the window timeout, and do not reset the prefix in between.
   local appid=$1 game=$2 try t seen
   if window_exists "$appid" && wine_running "$game"; then return 0; fi
-  for try in 1 2 3; do
+  for ((try = 1; try <= GAME_START_TRIES; try++)); do
     log "launching $game from Steam (attempt $try)"
     steam "steam://rungameid/$(python3 -c "print(($appid << 32) | 0x02000000)")" >/dev/null 2>&1 9>&- &
     seen=0

@@ -13,7 +13,7 @@ Runs [genshin-bettergi](../genshin-bettergi/README.md) and [zzz-onedragon](../zz
 
 ## What each step does
 
-1. Starts the game from Steam (`steam://rungameid/...`), retrying up to 3 times. Right after boot, the first launch of a HoYo game often dies within ~30 s.
+1. Starts the game from Steam (`steam://rungameid/...`), retrying up to 6 times. Right after boot, the first launch of a HoYo game often dies within ~30 s.
 2. Starts the tool: `bettergi.sh startOneDragon` or `zzz-od.sh run -c`.
 3. Every 10 s: checks that the game and the tool are still running, and raises the game window if it lost focus (BetterGI pauses when the game is in the background, and KDE stops Wine from taking focus back).
 4. Ends when the game closes (both tools are set to close it when done), the tool exits, or the timeout is reached (`GI_TIMEOUT` 40 min, `ZZZ_TIMEOUT` 20 min). Then it stops the game's whole wineserver.
