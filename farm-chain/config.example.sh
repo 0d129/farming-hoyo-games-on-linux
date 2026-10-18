@@ -9,12 +9,17 @@ ZZZ_APPID=1234567890
 # never sends its own notification). Keep it out of git: config.sh is in .gitignore.
 DISCORD_WEBHOOK=""
 
+# Optional: also run MAA for Arknights after the two HoYo games (set up ../arknights-maa first)
+# ARKNIGHTS=1
+
 # Where BetterGI and OneDragon live (their logs tell whether a tool got past its startup).
 # BGI_DIR="$HOME/Games/BetterGI"
 # OD_DIR="$HOME/Games/ZZZ_OD"
+# ARK_MAA_DIR="$HOME/Games/Arknights/MAA"
 
 # Optional overrides:
 # STEAM_ROOT="$HOME/.steam/steam"
 # PROTON_DIR="$STEAM_ROOT/steamapps/common/Proton 9.0 (Beta)"
 # GI_TIMEOUT=2400    # seconds before a step is stopped
 # ZZZ_TIMEOUT=1200
+# ARK_TIMEOUT=3600

@@ -1,12 +1,13 @@
 #!/bin/bash
-# Chain-run BetterGI (Genshin) and OneDragon (ZZZ), like OneDragon-ScriptChainer's 01.yml.
-# For each step: start the game from Steam, start the tool, wait until the game or the tool
-# closes (or the timeout), then kill both by stopping the game's wineserver. A step is retried
+# Chain-run BetterGI (Genshin), OneDragon (ZZZ) and, with ARKNIGHTS=1, MAA (Arknights), like
+# OneDragon-ScriptChainer's 01.yml.
+# For each step: start the game from Steam (MAA starts Arknights itself), start the tool, wait until
+# the game or the tool closes (or the timeout), then kill both by stopping the game's wineserver. A step is retried
 # once if the game dies right after the tool starts, the tool hangs at startup (READY) or it hits a
 # known error loop (STUCK). With DISCORD_WEBHOOK set in config.sh, the result is posted to Discord.
 #
 #   ./farm-chain.sh           run all steps
-#   ./farm-chain.sh zzz       run only the named steps (genshin, zzz)
+#   ./farm-chain.sh zzz       run only the named steps (genshin, zzz, arknights)
 # While a step runs the game is kept in the foreground; Ctrl+C stops the chain, the game and the tool.
 # Log: ~/.cache/farm-chain/chain-<date>.log
 HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
@@ -18,6 +19,7 @@ STEAM_ROOT="${STEAM_ROOT:-$HOME/.steam/steam}"
 PROTON_DIR="${PROTON_DIR:-$STEAM_ROOT/steamapps/common/Proton 9.0 (Beta)}"
 BGI_DIR="${BGI_DIR:-$HOME/Games/BetterGI}"
 OD_DIR="${OD_DIR:-$HOME/Games/ZZZ_OD}"
+ARK_MAA_DIR="${ARK_MAA_DIR:-$HOME/Games/Arknights/MAA}"
 RAISE="$REPO/zzz-onedragon/raise_game.py"
 
 # name | Steam shortcut app ID | game exe | tool command | tool exe (Wine argv[0]) | timeout (s)
@@ -25,6 +27,12 @@ STEPS=(
   "genshin|$GI_APPID|GenshinImpact.exe|$REPO/genshin-bettergi/bettergi.sh startOneDragon|BetterGI.exe|${GI_TIMEOUT:-2400}"
   "zzz|$ZZZ_APPID|ZenlessZoneZero.exe|$REPO/zzz-onedragon/zzz-od.sh run -c|python.exe|${ZZZ_TIMEOUT:-1200}"
 )
+# Arknights is not a Steam game here: MAA starts the client in its own prefix (arknights-maa/).
+[ "${ARKNIGHTS:-0}" = 1 ] &&
+  STEPS+=("arknights|-|Arknights.exe|$REPO/arknights-maa/maa.sh run|MAA.exe|${ARK_TIMEOUT:-3600}")
+# Steps whose tool starts the game, and how to stop such a step's prefix
+declare -A SELF_LAUNCH=([arknights]=1)
+declare -A KILL=([arknights]="$REPO/arknights-maa/maa.sh kill")
 GAME_START_TIMEOUT=300   # Steam may need to start first
 GAME_START_TRIES=6       # launches before giving up; Genshin often dies within ~20s on the first 2-3
 GAME_LOAD_WAIT=20        # let the game get past its splash before the tool looks at it
@@ -45,6 +53,7 @@ declare -A STUCK=(
 declare -A READY=(
   [genshin]="$BGI_DIR/log/better-genshin-impact%DATE%.log|启用一条龙配置"
   [zzz]="$OD_DIR/.log/log.txt|指令\[ 进入游戏 \]"
+  [arknights]="$ARK_MAA_DIR/debug/gui.log|开始任务"
 )
 
 LOG_DIR="$HOME/.cache/farm-chain"; mkdir -p "$LOG_DIR"
@@ -104,15 +113,16 @@ save_diag() {  # dir appid game game-dir
   log "diagnostics saved to $d"
 }
 
-kill_prefix() {  # stops the game, the tool and anything else in that prefix
-  WINEPREFIX="$STEAM_ROOT/steamapps/compatdata/$1/pfx" "$PROTON_DIR/files/bin/wineserver" -k 2>/dev/null
+kill_prefix() {  # name appid; stops the game, the tool and anything else in that prefix
+  if [ -n "${KILL[$1]}" ]; then ${KILL[$1]} 2>/dev/null; return; fi
+  WINEPREFIX="$STEAM_ROOT/steamapps/compatdata/$2/pfx" "$PROTON_DIR/files/bin/wineserver" -k 2>/dev/null
 }
 
-start_game() {  # appid game-exe; returns 0 once the game is running with a window
+start_game() {  # name appid game-exe; returns 0 once the game is running with a window
   # Right after boot the first launch of a HoYo game often dies within ~30s (Genshin: anti-cheat
   # crash, no window; ZZZ: empty window frame). A relaunch a few seconds later works, so retry at
   # once instead of waiting for the window timeout, and do not reset the prefix in between.
-  local appid=$1 game=$2 try t seen diag gdir
+  local name=$1 appid=$2 game=$3 try t seen diag gdir
   if window_exists "$appid" && wine_running "$game"; then return 0; fi
   for ((try = 1; try <= GAME_START_TRIES; try++)); do
     diag="$LOG_DIR/diag/$(date +%Y%m%d-%H%M%S)-${game%.exe}-$try"; gdir=
@@ -140,10 +150,10 @@ start_game() {  # appid game-exe; returns 0 once the game is running with a wind
     log "$game did not start properly (attempt $try, ${t}s)"
     save_diag "$diag" "$appid" "$game" "$gdir"
     # A dead game can leave its window frame behind; only then clear the prefix
-    if window_exists "$appid"; then kill_prefix "$appid"; fi
+    if window_exists "$appid"; then kill_prefix "$name" "$appid"; fi
     sleep 3
   done
-  kill_prefix "$appid"
+  kill_prefix "$name" "$appid"
   return 1
 }
 
@@ -151,12 +161,16 @@ run_step() {
   local name=$1 appid=$2 game=$3 cmd=$4 tool=$5 timeout=$6 t tool_pid result
   log "== $name: start"; notify "$name: starting"
 
-  if ! start_game "$appid" "$game"; then
+  local self=${SELF_LAUNCH[$name]:-0} seen=0
+  if [ "$self" = 1 ]; then
+    : # the tool starts the game
+  elif ! start_game "$name" "$appid" "$game"; then
     log "$name: game failed to start, skipping"; notify "$name: game failed to start"
     STEP_RESULT="game failed to start"
     return 1
+  else
+    python3 "$RAISE" "steam_app_$appid"; seen=1
   fi
-  python3 "$RAISE" "steam_app_$appid"
 
   local stuck_log= stuck_re=
   if [ -n "${STUCK[$name]}" ]; then
@@ -176,12 +190,13 @@ run_step() {
   log "starting: $cmd"
   setsid $cmd </dev/null >>"$LOG_DIR/$name-tool.log" 2>&1 9>&- &
   tool_pid=$!
-  CUR_APPID=$appid CUR_PID=$tool_pid
+  CUR_NAME=$name CUR_APPID=$appid CUR_PID=$tool_pid
 
   result=timeout
   for ((t = 0; t < timeout; t += 10)); do
     sleep 10
-    if ! wine_running "$game"; then result="game closed"; break; fi
+    if wine_running "$game"; then seen=1
+    elif [ "$seen" = 1 ]; then result="game closed"; break; fi   # self-launched games may not be up yet
     # the tool's own process (BetterGI.exe / python.exe) or its launcher script
     if ! wine_running "$tool" && ! kill -0 "$tool_pid" 2>/dev/null; then result="tool closed"; break; fi
     if [ -n "$stuck_log" ] && grep -qE "$stuck_re" "$stuck_log" 2>/dev/null; then result="tool stuck"; break; fi
@@ -190,12 +205,13 @@ run_step() {
       elif [ "$t" -ge "$READY_TIMEOUT" ]; then result="tool hung at startup"; break; fi
     fi
     # BetterGI pauses when the game loses focus, and KDE blocks Wine from taking focus back
-    game_is_active "$appid" || python3 "$RAISE" "steam_app_$appid" >/dev/null
+    [ "$self" = 1 ] || game_is_active "$appid" || python3 "$RAISE" "steam_app_$appid" >/dev/null
   done
   log "$name: done ($result after ${t}s), killing game and tool"
   kill -- -"$tool_pid" 2>/dev/null
-  kill_prefix "$appid"
-  CUR_APPID= CUR_PID=
+  sleep 2   # let the tool's wrapper clean up (maa.sh switches MAA's auto-run back off)
+  kill_prefix "$name" "$appid"
+  CUR_NAME= CUR_APPID= CUR_PID=
   sleep 5
   notify "$name: done ($result)"
   STEP_RESULT="$result after ${t}s"
@@ -209,7 +225,7 @@ run_step() {
 on_abort() {
   log "aborted, stopping current game and tool"
   [ -n "$CUR_PID" ] && kill -- -"$CUR_PID" 2>/dev/null
-  [ -n "$CUR_APPID" ] && kill_prefix "$CUR_APPID"
+  [ -n "$CUR_APPID" ] && kill_prefix "$CUR_NAME" "$CUR_APPID"
   notify "chain aborted"; discord "farm-chain $START: aborted"; exit 130
 }
 trap on_abort INT TERM

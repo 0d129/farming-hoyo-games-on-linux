@@ -1,26 +1,26 @@
-# 无人值守串联：定时跑原神 + 绝区零
+# 无人值守串联：定时跑原神 + 绝区零（+ 明日方舟）
 
 [English](README.md) | 简体中文
 
-按顺序无人值守地运行 [genshin-bettergi](../genshin-bettergi/README.zh-CN.md) 和 [zzz-onedragon](../zzz-onedragon/README.zh-CN.md)（例如用 cron 定时），作用类似 Windows 上的 OneDragon-ScriptChainer。请先把这两部分各自配置好并测试通过。
+按顺序无人值守地运行 [genshin-bettergi](../genshin-bettergi/README.zh-CN.md) 和 [zzz-onedragon](../zzz-onedragon/README.zh-CN.md)（例如用 cron 定时），作用类似 Windows 上的 OneDragon-ScriptChainer。在 `config.sh` 里设置 `ARKNIGHTS=1` 后，会接着运行 [arknights-maa](../arknights-maa/README.zh-CN.md)（MAA）。请先把各部分分别配置好并测试通过。
 
 | 文件 | 作用 |
 |---|---|
-| `config.example.sh` | 复制为 `config.sh`，填两个游戏的 Steam app ID，可选填 Discord webhook。 |
-| `farm-chain.sh` | 运行串联。`./farm-chain.sh` 跑全部步骤；`./farm-chain.sh zzz` 只跑指定的步骤（`genshin`、`zzz`）。 |
+| `config.example.sh` | 复制为 `config.sh`，填两个游戏的 Steam app ID，可选填 Discord webhook 和 `ARKNIGHTS=1`。 |
+| `farm-chain.sh` | 运行串联。`./farm-chain.sh` 跑全部步骤；`./farm-chain.sh zzz` 只跑指定的步骤（`genshin`、`zzz`、`arknights`）。 |
 | `farm-chain-cron.sh` | 给 cron 用的入口：从桌面会话借用 `DISPLAY`/`XAUTHORITY`/D-Bus，再运行 `farm-chain.sh`。 |
 | `kwin-rule.sh` | 仅 KDE：添加一条窗口规则，防止 BetterGI 的遮罩窗口被最大化（见[下文](#bettergi-报-cannot-show-window-when-showactivated-is-false-and-windowstate-is-set-to-maximized)）。 |
 
 ## 每一步做什么
 
-1. 从 Steam 启动游戏（`steam://rungameid/...`），最多尝试 6 次。开机后第一次启动米哈游游戏经常在 30 秒内闪退。
-2. 启动工具：`bettergi.sh startOneDragon` 或 `zzz-od.sh run -c`。
+1. 从 Steam 启动游戏（`steam://rungameid/...`），最多尝试 6 次。开机后第一次启动米哈游游戏经常在 30 秒内闪退。（明日方舟跳过这一步，由 MAA 自己启动游戏。）
+2. 启动工具：`bettergi.sh startOneDragon`、`zzz-od.sh run -c` 或 `maa.sh run`。
 3. 每 10 秒检查一次游戏和工具是否还在运行。游戏窗口失去焦点时把它切回前台：BetterGI 在游戏处于后台时会暂停，而 KDE 会阻止 Wine 自己抢回焦点。
-4. 游戏关闭（两个工具都设置成跑完后关闭游戏）、工具退出或者超时（`GI_TIMEOUT` 40 分钟，`ZZZ_TIMEOUT` 20 分钟）时结束这一步，然后停掉游戏的整个 wineserver。
+4. 游戏关闭（两个工具都设置成跑完后关闭游戏）、工具退出或者超时（`GI_TIMEOUT` 40 分钟，`ZZZ_TIMEOUT` 20 分钟，`ARK_TIMEOUT` 60 分钟）时结束这一步，然后停掉游戏的整个 wineserver。MAA 跑完任务队列后会自己退出。
 
 以下情况**会把这一步重跑一次**：
 - 工具启动后 120 秒内游戏就关闭了（启动后闪退）；
-- 工具启动后卡死：5 分钟内没有在自己的日志里写出“已就绪”标志（BetterGI 是 `启用一条龙配置`，一条龙是 `指令[ 进入游戏 ]`）。两个工具都出现过加载完 OCR 模型后就无声卡住的情况；
+- 工具启动后卡死：5 分钟内没有在自己的日志里写出“已就绪”标志（BetterGI 是 `启用一条龙配置`，一条龙是 `指令[ 进入游戏 ]`，MAA 是 `开始任务`）。两个工具都出现过加载完 OCR 模型后就无声卡住的情况；
 - BetterGI 陷入已知的报错循环（见下文）。如果不检测，它们会一直空等到超时。
 
 在 `config.sh` 里设置 `DISCORD_WEBHOOK` 后，每次运行结束都会把汇总（每一步每次尝试的结果）发到 Discord。这样即使工具卡死、没发出自己的通知，也能收到失败消息。
@@ -38,7 +38,7 @@
 ```bash
 cd farming-hoyo-games-on-linux/farm-chain
 cp config.example.sh config.sh
-nano config.sh          # GI_APPID、ZZZ_APPID、DISCORD_WEBHOOK（可选）
+nano config.sh          # GI_APPID、ZZZ_APPID、DISCORD_WEBHOOK（可选）、ARKNIGHTS=1（可选）
 ./farm-chain.sh         # 先手动跑一次
 ./kwin-rule.sh          # 仅 KDE，推荐
 crontab -e
