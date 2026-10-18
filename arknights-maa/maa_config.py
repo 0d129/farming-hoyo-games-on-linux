@@ -7,7 +7,7 @@ MAA must be closed: it rewrites the file on exit.
   maa_config.py <gui.new.json> meow <maameow_config.json>
   maa_config.py <gui.new.json> show
 
-setup    PC connection (Win32: PrintWindow screenshots, Seize mouse input), MAA starts the game
+setup    PC connection (Win32: ScreenDC screenshots, Seize mouse input), MAA starts the game windowed
          itself, MAA's own schedule off (farm-chain runs it), no system notifications (under Wine
          they steal the mouse focus until closed), Discord webhook if given.
 autorun  on: MAA runs its task queue right after it starts and exits when done (for farm-chain).
@@ -44,12 +44,14 @@ def setup(d, game_exe, webhook=''):
     cs = g['ConnectSettings']
     cs['Config'] = 'PC'
     # Unity ignores the posted window messages of the PostMessage* methods under Wine, so only
-    # Seize (real SendInput, it moves the mouse) gets clicks through. ScreenDC returns garbage once
-    # the game is past its title screen; PrintWindow gets the right image.
-    cs['Extras']['Win32Extra'].update(ScreencapMethod='PrintWindow', MouseMethod='Seize', MuteWhileRunning=True)
+    # Seize (real SendInput, it moves the mouse) gets clicks through. The game draws with DXVK, so
+    # PrintWindow only returns black; ScreenDC copies that part of the screen, which is right as
+    # long as the game is a window (fullscreen also catches the taskbar) and nothing covers it.
+    cs['Extras']['Win32Extra'].update(ScreencapMethod='ScreenDC', MouseMethod='Seize', MuteWhileRunning=True)
     g['StartUpSettings'].update(StartPcClient=True, RestartPcClientWhenConnectFailed=True,
                                 PcClientPath=winpath(game_exe),
-                                PcClientAddCommand='-launcher_lang=zh-cn -launcher_sub_channel=1',
+                                PcClientAddCommand='-launcher_lang=zh-cn -launcher_sub_channel=1'
+                                ' -screen-fullscreen 0 -screen-width 1280 -screen-height 720',
                                 PcClientWaitSeconds=60)
     d['Gui']['UseNotify'] = False
     for t in d['Timers']['List']:

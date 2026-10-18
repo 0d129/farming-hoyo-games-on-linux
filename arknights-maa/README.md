@@ -47,12 +47,12 @@ In the game, keep **设置 → 游戏 → UI 缩放** at 100% and a 16:9 resolut
 | MAA's window is black / doesn't redraw | WPF hardware rendering under Wine | `HKCU\Software\Microsoft\Avalon.Graphics\DisableHWAcceleration=1` (`setup.sh registry`) |
 | MAA's window can't be clicked | Wine confines the pointer to the fullscreen game; MAA's own toast notifications also hold the focus until closed | Wine `X11 Driver\GrabPointer=N`, `GrabFullscreen=N` (`setup.sh registry`); MAA system notifications off (`maaconfig`) |
 | MAA recognizes the title screen but its clicks do nothing | Unity ignores the posted window messages of the `PostMessage*` mouse methods under Wine | mouse input **Seize** (`maaconfig`) |
-| MAA fails every task on the home screen | the `ScreenDC` screenshot method returns garbage once past the title screen | screenshots **PrintWindow** (`maaconfig`) |
+| MAA's screenshots are black, or show the taskbar / other windows | the game draws with DXVK, so `PrintWindow` gets black; `ScreenDC` copies that part of the screen, so it needs the game windowed and on top | screenshots **ScreenDC**, game started windowed at 1280x720 (`maaconfig`), `maa.sh run` keeps the game window in front |
 | Discord notifications | MAA's Discord option is a bot (token + user ID) | Custom Webhook with MAA's "Discord Webhook" template, body `{"content": "{content}"}` (`maaconfig`) |
 
 ## Limitations
 
-- **Seize moves the real mouse.** While MAA runs tasks the computer can't be used, and the game window has to stay in front. Run it when you are away (farm-chain at night), and stop it with `maa.sh stop` / the menu entry.
+- **Seize moves the real mouse, and ScreenDC screenshots the screen.** While MAA runs tasks the computer can't be used, and the game window has to stay windowed and in front (`maa.sh run` raises it every 15 s). Run it when you are away (farm-chain at night), and stop it with `maa.sh stop` / the menu entry.
 - The game ships ACE (AntiCheatExpert); Hypergryph doesn't support Linux. GE-Proton is a normal compatibility layer, not an anti-cheat bypass, but there is no guarantee.
 - MAA keeps its webhook URL DPAPI-encrypted; `maaconfig` writes it in plain text. MAA warns once and encrypts it the next time that setting page is saved.
 - `setup.sh meow` doesn't import MAA-Meow's 库存保持 (keep inventory) plans; set them in MAA's own 库存保持 task. MAA-Meow's Android-only settings have no counterpart.

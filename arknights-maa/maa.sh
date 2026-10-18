@@ -16,6 +16,7 @@ export STEAM_COMPAT_DATA_PATH="$ARK_PREFIX" STEAM_COMPAT_CLIENT_INSTALL_PATH="$S
 export QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu --disable-gpu-compositing --no-sandbox" QT_OPENGL=software
 CFG="$MAA_DIR/config/gui.new.json"
 MAA_RE='^[A-Z]:.*\\MAA[.]exe( |$)'   # Wine's argv[0], not a shell line that mentions MAA.exe
+GAME_TITLE="明日方舟"
 
 maa_running() { pgrep -f "$MAA_RE" >/dev/null; }
 for f in "$PROTON_DIR/proton" "$MAA_DIR/MAA.exe"; do
@@ -37,6 +38,13 @@ case "${1:-gui}" in
     cd "$MAA_DIR" || exit 1
     "$PROTON_DIR/proton" run "$MAA_DIR/MAA.exe" &
     pid=$!
+    # MAA takes screenshots of, and clicks on, whatever is on screen where the game is: keep the
+    # game window in front (Wine windows started outside Steam all have WM_CLASS steam_proton,
+    # so match the title)
+    while kill -0 "$pid" 2>/dev/null; do
+      python3 "$HERE/../zzz-onedragon/raise_game.py" "name=$GAME_TITLE" >/dev/null 2>&1
+      sleep 15
+    done &
     wait "$pid"
     ;;
   stop)

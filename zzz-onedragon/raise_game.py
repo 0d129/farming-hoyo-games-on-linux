@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Raise and focus the game window (matched by X11 WM_CLASS) via EWMH _NET_ACTIVE_WINDOW (source=pager, so KDE allows it)."""
+"""Raise and focus the game window (matched by X11 WM_CLASS, or by title with name=<title>) via EWMH
+_NET_ACTIVE_WINDOW (source=pager, so KDE allows it)."""
 import ctypes
 import ctypes.util
 import sys
 
 if len(sys.argv) != 2:
-    sys.exit('usage: raise_game.py steam_app_<APPID>')
+    sys.exit('usage: raise_game.py steam_app_<APPID> | name=<window title>')
 WM_CLASS = sys.argv[1]
 
 x = ctypes.cdll.LoadLibrary(ctypes.util.find_library('X11'))
@@ -51,10 +52,25 @@ def prop_windows(win: int, name: bytes) -> list[int]:
     return list(ctypes.cast(data, ctypes.POINTER(ctypes.c_ulong))[:n.value])
 
 
+def prop_text(win: int, name: bytes) -> str:
+    atype, fmt, n, after = ctypes.c_ulong(), ctypes.c_int(), ctypes.c_ulong(), ctypes.c_ulong()
+    data = ctypes.c_void_p()
+    x.XGetWindowProperty(dpy, win, x.XInternAtom(dpy, name, 0), 0, 1024, 0, 0,  # AnyPropertyType
+                         ctypes.byref(atype), ctypes.byref(fmt), ctypes.byref(n), ctypes.byref(after),
+                         ctypes.byref(data))
+    return ctypes.string_at(data.value, n.value).decode(errors='replace') if data.value else ''
+
+
+# Windows started outside Steam (e.g. Arknights, started by MAA) all have WM_CLASS steam_proton
+TITLE = WM_CLASS[5:] if WM_CLASS.startswith('name=') else None
 target = None
 for w in prop_windows(root, b'_NET_CLIENT_LIST'):
     hint = XClassHint()
-    if x.XGetClassHint(dpy, ctypes.c_ulong(w), ctypes.byref(hint)) and hint.res_class == WM_CLASS.encode():
+    if TITLE is not None:
+        if prop_text(w, b'_NET_WM_NAME') == TITLE:
+            target = w
+            break
+    elif x.XGetClassHint(dpy, ctypes.c_ulong(w), ctypes.byref(hint)) and hint.res_class == WM_CLASS.encode():
         target = w
         break
 if target is None:

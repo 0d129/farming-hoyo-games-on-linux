@@ -47,12 +47,12 @@ cp config.example.sh config.sh && nano config.sh
 | MAA 窗口黑屏、不刷新 | Wine 下 WPF 的硬件渲染 | `HKCU\Software\Microsoft\Avalon.Graphics\DisableHWAcceleration=1`（`setup.sh registry`） |
 | MAA 窗口点不动 | Wine 把鼠标锁在全屏游戏里；MAA 自己的弹出通知在被关掉之前也会占住焦点 | Wine 的 `X11 Driver\GrabPointer=N`、`GrabFullscreen=N`（`setup.sh registry`）；关闭 MAA 的系统通知（`maaconfig`） |
 | MAA 能识别开始界面，但点击没反应 | Wine 下 Unity 不响应 `PostMessage*` 系列鼠标输入方式发出的窗口消息 | 鼠标输入方式用 **Seize**（`maaconfig`） |
-| MAA 在主界面所有任务都失败 | 进入开始界面之后，`ScreenDC` 截图方式截到的是乱码 | 截图方式用 **PrintWindow**（`maaconfig`） |
+| MAA 的截图是全黑的，或者截到了任务栏、其他窗口 | 游戏用 DXVK 渲染，`PrintWindow` 只能截到黑屏；`ScreenDC` 截的是屏幕上对应的区域，所以游戏必须是窗口模式并且在最前面 | 截图方式用 **ScreenDC**，游戏以 1280x720 窗口模式启动（`maaconfig`），`maa.sh run` 运行时把游戏窗口保持在最前面 |
 | Discord 通知 | MAA 的 Discord 选项是 Bot（Token + User ID） | 用自定义 Webhook，套 MAA 自带的「Discord Webhook」模板，消息体 `{"content": "{content}"}`（`maaconfig`） |
 
 ## 局限
 
-- **Seize 会移动真实的鼠标。** MAA 跑任务时电脑没法用，游戏窗口也必须保持在最前面。最好在你不用电脑时运行（farm-chain 夜间运行），用 `maa.sh stop` 或开始菜单里的快捷方式停止。
+- **Seize 会移动真实的鼠标，ScreenDC 截的是屏幕画面。** MAA 跑任务时电脑没法用，游戏必须保持窗口模式并在最前面（`maa.sh run` 每 15 秒把它切到前台）。最好在你不用电脑时运行（farm-chain 夜间运行），用 `maa.sh stop` 或开始菜单里的快捷方式停止。
 - 游戏带有 ACE（AntiCheatExpert）反作弊，鹰角也不支持 Linux。GE-Proton 是正常的兼容层，不是绕过反作弊的工具，但不能保证没有风险。
 - MAA 用 DPAPI 加密保存 webhook 地址，`maaconfig` 写入的是明文。MAA 会提示一次，等那个设置页下次保存时再加密。
 - `setup.sh meow` 不会导入 MAA-Meow 的「库存保持」计划，请在 MAA 自己的「库存保持」任务里设置。MAA-Meow 只适用于安卓的设置在这里没有对应项。
